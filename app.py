@@ -237,7 +237,7 @@ def chatbot():
     if not user_message:
         return jsonify({'error': 'No message provided'}), 400
 
-    relevant_chunks = get_relevant_chunks(user_message, 15)
+    relevant_chunks = get_relevant_chunks(user_message, 10)
     llm_output = generate_response(user_message, relevant_chunks)
 
     return jsonify({'response': llm_output})
