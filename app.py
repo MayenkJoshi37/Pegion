@@ -24,6 +24,11 @@ app.config['PDF_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'pdfs')
 app.config['TEXT_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'text')
 app.config['IMAGE_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'images')
 app.config['DOCX_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'docs')
+app.config['ENCRYPTED_FOLDER'] = 'E-Files'
+app.config['KEYS_FOLDER'] = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret_keys')
+
+os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
+os.makedirs(app.config['KEYS_FOLDER'], exist_ok=True)
 
 # Ensure folders exist
 for folder in [app.config['UPLOAD_FOLDER'], app.config['PDF_FOLDER'], app.config['TEXT_FOLDER'],
