@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #007BFF, #00d4ff);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #1e1e2f;
+            color: white;
+            padding: 25px;
+            text-align: center;
+            font-size: 2rem;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            background: white;
+            padding: 60px 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            margin-top: 140px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        h3 {
+            font-size: 1.8rem;
+            color: #007BFF;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-size: 1.2rem;
+            color: #555;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            outline: none;
+            transition: border 0.3s ease;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        input[type="file"]:hover, input[type="file"]:focus {
+            border-color: #007BFF;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group label {
+            font-size: 1rem;
+            color: #333;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        button, .btn {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: background 0.3s, transform 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover, .btn:hover {
+            background: #218838;
+            transform: scale(1.05);
+        }
+
+        .btn-chat {
+            background: #007BFF;
+        }
+
+        .btn-chat:hover {
+            background: #0056b3;
+        }
+
+        /* Popup Notification */
+        .popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4CAF50;
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+
+        .popup.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #upload-status {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #555;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            header {
+                font-size: 1.5rem;
+                padding: 15px;
+            }
+
+            button, .btn {
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Welcome, Patient</h2>
+</header>
+
+<div class="container">
+    <h3>Select Doctors to Share Files With</h3>
+
+    <!-- Doctor Selection -->
+    <form id="upload-form" enctype="multipart/form-data" method="POST">
+        <div class="checkbox-group">
+            <label>
+                <input type="checkbox" name="doctors[]" value="Dr. Ashok Seth - Cardiologist"> Dr. Ashok Seth - Cardiologist
+            </label>
+            <label>
+                <input type="checkbox" name="doctors[]" value="Dr. Parveen Gupta - Neurologist"> Dr. Parveen Gupta - Neurologist
+            </label>
+        </div>
+
+        <h3>Upload Your Medical Files</h3>
+        <input type="file" id="patient-files" name="files[]" multiple>
+
+        <div class="button-group">
+            <button type="submit">Upload</button>
+            <a href="/chat" class="btn btn-chat">Chat</a>
+        </div>
+    </form>
+
+    <div id="upload-status"></div>
+</div>
+
+<div id="popup" class="popup">Files uploaded successfully!</div>
+
+<script>
+    const form = document.getElementById('upload-form');
+    const statusDiv = document.getElementById('upload-status');
+    const popup = document.getElementById('popup');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData();
+        const files = document.getElementById('patient-files').files;
+        
+        if (files.length === 0) {
+            alert("Please select at least one file.");
+            return;
+        }
+
+        // Append files to formData
+        for (let file of files) {
+            formData.append('files[]', file);
+        }
+
+        // Append selected doctors
+        const doctors = Array.from(document.querySelectorAll('input[name="doctors[]"]:checked'))
+                            .map(checkbox => checkbox.value);
+
+        if (doctors.length === 0) {
+            alert("Please select at least one doctor.");
+            return;
+        }
+
+        formData.append('doctors', JSON.stringify(doctors));
+
+        try {
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                popup.classList.add('show');
+                statusDiv.textContent = `Files uploaded: ${result.files.join(', ')}`;
+                statusDiv.style.color = 'green';
+                form.reset();
+                setTimeout(() => popup.classList.remove('show'), 3000);
+            } else {
+                statusDiv.textContent = `Error: ${result.error}`;
+                statusDiv.style.color = 'red';
+            }
+
+        } catch (error) {
+            statusDiv.textContent = `Upload failed: ${error}`;
+            statusDiv.style.color = 'red';
+        }
+    });
+</script>
+
+</body>
+</html>
