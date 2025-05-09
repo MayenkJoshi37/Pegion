@@ -43,7 +43,7 @@ EXT_TO_FOLDER = {
     '.png': app.config['IMAGE_FOLDER']
 }
 
-llm = OllamaLLM(model='gemma3:4b-it-q8_0')                      # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
+llm = OllamaLLM(model='llama3.2:1b')                      # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
 vector_db = chromadb.PersistentClient(path='./chroma_db')
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 collection = vector_db.get_or_create_collection(name='document_chunks', metadata={'hnsw:space': 'cosine'})
@@ -104,10 +104,21 @@ def add_document_to_db(text_chunks, source_filename):
 
     db_log = [{'id': doc_id, 'chunk': chunk, 'embedding': emb} for doc_id, chunk, emb in zip(ids, text_chunks, embedding)]
 
+    # Save temporarily as .json
     with open(log_filepath, 'w', encoding='utf-8') as f:
         json.dump(db_log, f, indent=4)
 
-    print(f"Saved vector DB log for {source_filename} at {log_filepath}")
+    # Encrypt the log file
+    name_without_ext = os.path.splitext(log_filename)[0]
+    encrypt_file(log_filepath, app.config['ENCRYPTED_FOLDER'], name_without_ext)
+
+    # Save original extension in meta
+    meta_path = os.path.join(app.config['KEYS_FOLDER'], name_without_ext + ".meta")
+    with open(meta_path, "w") as meta_file:
+        meta_file.write(".json")
+
+    print(f"✅ Encrypted and saved vector DB log for {source_filename}")
+
 
 def get_relevant_chunks(query, num_chunks):
     query_embedding = embedding_model.encode(query).tolist()
