@@ -17,18 +17,19 @@ print(f"[INFO] Running on device: {device}")
 
 app = Flask(__name__, static_folder='static')
 
+app.config["LOGS_FOLDER"] = 'logs'
 app.config['UPLOAD_FOLDER'] = 'uploades'
-app.config["LOGS_FOLDER"] = "logs"
-app.config['VECTOR_DB_LOG'] = os.path.join(app.config['LOGS_FOLDER'], 'vector_db_log.json')
+app.config['ENCRYPTED_FOLDER'] = 'E-Files'
+
 app.config['PDF_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'pdfs')
+app.config['DOCX_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'docs')
 app.config['TEXT_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'text')
 app.config['IMAGE_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'images')
-app.config['DOCX_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'docs')
-app.config['ENCRYPTED_FOLDER'] = 'E-Files'
 app.config['KEYS_FOLDER'] = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret_keys')
+app.config['VECTOR_DB_LOG'] = os.path.join(app.config['LOGS_FOLDER'], 'vector_db_log.json')
 
-os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
 os.makedirs(app.config['KEYS_FOLDER'], exist_ok=True)
+os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
 
 for folder in [app.config['UPLOAD_FOLDER'], app.config['PDF_FOLDER'], app.config['TEXT_FOLDER'],
                app.config['IMAGE_FOLDER'], app.config['DOCX_FOLDER'], app.config['LOGS_FOLDER']]:
@@ -42,10 +43,10 @@ EXT_TO_FOLDER = {
     '.png': app.config['IMAGE_FOLDER']
 }
 
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
+llm = OllamaLLM(model='gemma3:4b-it-q8_0')                      # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
 vector_db = chromadb.PersistentClient(path='./chroma_db')
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 collection = vector_db.get_or_create_collection(name='document_chunks', metadata={'hnsw:space': 'cosine'})
-llm = OllamaLLM(model='gemma3:4b-it-q8_0') # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
 
 def extract_text_from_pdf(pdf_path):
     text = ''
@@ -82,10 +83,8 @@ def extract_text_from_image(image_path):
         Analyze the attached image carefully.
         {image_path}
         """
-
         response = llm.invoke(prompt)
         return response.strip()
-    
     except Exception as e:
         return f"Error generating caption: {str(e)}"
 
@@ -117,7 +116,6 @@ def get_relevant_chunks(query, num_chunks):
 
 def generate_response(user_message, relevant_chunks):
     context = '\n\n'.join(relevant_chunks) if relevant_chunks else 'No relevant Documents found.'
-
     prompt = f"""
             You are a smart, polite, and professional AI medical assistant designed to help patients understand their medical documents.  
             Your job is to simplify complex medical language and provide clear, helpful responses based on the patient's uploaded reports.  
@@ -143,7 +141,6 @@ def generate_response(user_message, relevant_chunks):
             ### **Your Response:**  
 
             """
-
     response = llm.invoke(prompt)
     response_final = markdown2.markdown(response, extras=["strip"])  
     return response_final
@@ -258,7 +255,6 @@ def upload_files():
 
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 @app.route('/chatbot', methods=['POST'])
 def chatbot():
