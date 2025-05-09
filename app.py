@@ -17,30 +17,20 @@ print(f"[INFO] Running on device: {device}")
 
 app = Flask(__name__, static_folder='static')
 
-app.config["LOGS_FOLDER"] = 'logs'
-app.config['UPLOAD_FOLDER'] = 'uploades'
+app.config['TEMP_FOLDER'] = 'temp'
 app.config['ENCRYPTED_FOLDER'] = 'E-Files'
-
-app.config['PDF_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'pdfs')
-app.config['DOCX_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'docs')
-app.config['TEXT_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'text')
-app.config['IMAGE_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'images')
 app.config['KEYS_FOLDER'] = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret_keys')
-app.config['VECTOR_DB_LOG'] = os.path.join(app.config['LOGS_FOLDER'], 'vector_db_log.json')
 
+os.makedirs(app.config['TEMP_FOLDER'], exist_ok=True)
 os.makedirs(app.config['KEYS_FOLDER'], exist_ok=True)
 os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
 
-for folder in [app.config['UPLOAD_FOLDER'], app.config['PDF_FOLDER'], app.config['TEXT_FOLDER'],
-               app.config['IMAGE_FOLDER'], app.config['DOCX_FOLDER'], app.config['LOGS_FOLDER']]:
-               os.makedirs(folder, exist_ok=True)
-
 EXT_TO_FOLDER = {
-    '.pdf': app.config['PDF_FOLDER'],
-    '.txt': app.config['TEXT_FOLDER'],
-    '.docx': app.config['DOCX_FOLDER'],
-    '.jpg': app.config['IMAGE_FOLDER'],
-    '.png': app.config['IMAGE_FOLDER']
+    '.pdf': app.config['TEMP_FOLDER'],
+    '.txt': app.config['TEMP_FOLDER'],
+    '.docx': app.config['TEMP_FOLDER'],
+    '.jpg': app.config['TEMP_FOLDER'],
+    '.png': app.config['TEMP_FOLDER']
 }
 
 llm = OllamaLLM(model='llama3.2:1b')                      # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
@@ -100,7 +90,7 @@ def add_document_to_db(text_chunks, source_filename):
     collection.add(embeddings=embedding, documents=text_chunks, ids=ids)
 
     log_filename = f'embeddings_for_{secure_filename(source_filename)}.json'
-    log_filepath = os.path.join(app.config['LOGS_FOLDER'], log_filename)
+    log_filepath = os.path.join(app.config['TEMP_FOLDER'], log_filename)
 
     db_log = [{'id': doc_id, 'chunk': chunk, 'embedding': emb} for doc_id, chunk, emb in zip(ids, text_chunks, embedding)]
 
@@ -222,7 +212,7 @@ def upload_files():
             filename = secure_filename(file.filename)
             ext = os.path.splitext(filename)[1].lower()
             name_without_ext = os.path.splitext(filename)[0]
-            temp_save_path = os.path.join(EXT_TO_FOLDER.get(ext, app.config['UPLOAD_FOLDER']), filename)
+            temp_save_path = os.path.join(EXT_TO_FOLDER.get(ext), filename)
 
             if ext in EXT_TO_FOLDER:
                 file.save(temp_save_path)
