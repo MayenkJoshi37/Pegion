@@ -12,13 +12,11 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from sentence_transformers import SentenceTransformer
 
-# Auto device config
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"[INFO] Running on device: {device}")
 
 app = Flask(__name__, static_folder='static')
 
-# Configuration
 app.config['UPLOAD_FOLDER'] = 'uploades'
 app.config["LOGS_FOLDER"] = "logs"
 app.config['VECTOR_DB_LOG'] = os.path.join(app.config['LOGS_FOLDER'], 'vector_db_log.json')
@@ -32,12 +30,10 @@ app.config['KEYS_FOLDER'] = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret
 os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
 os.makedirs(app.config['KEYS_FOLDER'], exist_ok=True)
 
-# Ensure folders exist
 for folder in [app.config['UPLOAD_FOLDER'], app.config['PDF_FOLDER'], app.config['TEXT_FOLDER'],
                app.config['IMAGE_FOLDER'], app.config['DOCX_FOLDER'], app.config['LOGS_FOLDER']]:
                os.makedirs(folder, exist_ok=True)
 
-# Supported file types
 EXT_TO_FOLDER = {
     '.pdf': app.config['PDF_FOLDER'],
     '.txt': app.config['TEXT_FOLDER'],
@@ -46,16 +42,11 @@ EXT_TO_FOLDER = {
     '.png': app.config['IMAGE_FOLDER']
 }
 
-# Models
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
 vector_db = chromadb.PersistentClient(path='./chroma_db')
 collection = vector_db.get_or_create_collection(name='document_chunks', metadata={'hnsw:space': 'cosine'})
-#llm = OllamaLLM(model='gemma2:9b')
-#llm = OllamaLLM(model='llama3.2:1b')
-#llm = OllamaLLM(model='gemma3:12b-it-qat')
-llm = OllamaLLM(model='gemma3:12b-it-q4_K_M')
+llm = OllamaLLM(model='gemma3:4b-it-q8_0') # gemma2:9b llama3.2:1b gemma3:12b-it-qat gemma3:12b-it-q4_K_M
 
-# Helpers
 def extract_text_from_pdf(pdf_path):
     text = ''
     try:
@@ -186,7 +177,6 @@ def encrypt_file(file_path, encrypted_dir, file_name):
     print(f"[INFO] Encrypted and saved: {encrypted_path}")
     return encrypted_path
 
-# Routes
 @app.route("/")
 def index():
     return app.send_static_file("index.html")
