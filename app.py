@@ -1,14 +1,16 @@
-from flask import Flask, request, jsonify
 import os
-from sentence_transformers import SentenceTransformer
-import chromadb
-from langchain_ollama import OllamaLLM
-import pdfplumber
-from werkzeug.utils import secure_filename
 import json
-from docx import Document
-import markdown2 
 import torch
+import chromadb
+import markdown2 
+import pdfplumber
+
+from docx import Document
+from cryptography.fernet import Fernet
+from langchain_ollama import OllamaLLM
+from flask import Flask, request, jsonify
+from werkzeug.utils import secure_filename
+from sentence_transformers import SentenceTransformer
 
 # Auto device config
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -24,6 +26,11 @@ app.config['PDF_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'pdfs')
 app.config['TEXT_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'text')
 app.config['IMAGE_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'images')
 app.config['DOCX_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'docs')
+app.config['ENCRYPTED_FOLDER'] = 'E-Files'
+app.config['KEYS_FOLDER'] = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret_keys')
+
+os.makedirs(app.config['ENCRYPTED_FOLDER'], exist_ok=True)
+os.makedirs(app.config['KEYS_FOLDER'], exist_ok=True)
 
 # Ensure folders exist
 for folder in [app.config['UPLOAD_FOLDER'], app.config['PDF_FOLDER'], app.config['TEXT_FOLDER'],
@@ -126,8 +133,8 @@ def generate_response(user_message, relevant_chunks):
             Be accurate, respectful, and easy to understand. Keep things just long enough to be useful—never too short or too long.
             
             - Respond using proper Markdown formatting:
-              - Use `#` for main headings and `##` for subheadings.
-              - Use bullet points (`-`) for lists.
+              - Use # for main headings and ## for subheadings.
+              - Use bullet points (-) for lists.
               - Highlight key terms or results in **bold**.
               - Keep paragraphs short and readable.
             
@@ -149,6 +156,35 @@ def generate_response(user_message, relevant_chunks):
     response = llm.invoke(prompt)
     response_final = markdown2.markdown(response, extras=["strip"])  
     return response_final
+
+def generate_and_save_key(file_name):
+    key = Fernet.generate_key()
+    key_path = os.path.join(app.config['KEYS_FOLDER'], f"{file_name}.key")
+    with open(key_path, "wb") as f:
+        f.write(key)
+    return key
+
+def load_key(file_name):
+    key_path = os.path.join(app.config['KEYS_FOLDER'], f"{file_name}.key")
+    with open(key_path, "rb") as f:
+        return f.read()
+
+def encrypt_file(file_path, encrypted_dir, file_name):
+    key = generate_and_save_key(file_name)
+    fernet = Fernet(key)
+
+    with open(file_path, "rb") as f:
+        data = f.read()
+
+    encrypted_data = fernet.encrypt(data)
+
+    encrypted_path = os.path.join(encrypted_dir, f"{file_name}.enc")
+    with open(encrypted_path, "wb") as f:
+        f.write(encrypted_data)
+
+    os.remove(file_path)
+    print(f"[INFO] Encrypted and saved: {encrypted_path}")
+    return encrypted_path
 
 # Routes
 @app.route("/")
@@ -187,32 +223,36 @@ def upload_files():
         for file in files:
             filename = secure_filename(file.filename)
             ext = os.path.splitext(filename)[1].lower()
+            name_without_ext = os.path.splitext(filename)[0]
+            temp_save_path = os.path.join(EXT_TO_FOLDER.get(ext, app.config['UPLOAD_FOLDER']), filename)
 
             if ext in EXT_TO_FOLDER:
-                save_path = os.path.join(EXT_TO_FOLDER[ext], filename)
-                file.save(save_path)
+                file.save(temp_save_path)
 
+                # Extract text before encryption
                 if ext == '.pdf':
-                    text = extract_text_from_pdf(save_path)
-                    text_chunks = chunk_text_by_line(text)
-                    add_document_to_db(text_chunks, filename)
+                    text = extract_text_from_pdf(temp_save_path)
                 elif ext == '.txt':
-                    text = extract_text_from_txt(save_path)
-                    text_chunks = chunk_text_by_line(text)
-                    add_document_to_db(text_chunks, filename)
+                    text = extract_text_from_txt(temp_save_path)
                 elif ext == '.docx':
-                    text = extract_text_from_docx(save_path)
-                    text_chunks = chunk_text_by_line(text)
-                    add_document_to_db(text_chunks, filename)
-                elif ext == '.png':
-                    text = extract_text_from_image(save_path)
-                    text_chunks = chunk_text_by_line(text)
-                    add_document_to_db(text_chunks, filename)
-                elif ext == '.jpg':
-                    text = extract_text_from_image(save_path)
-                    text_chunks = chunk_text_by_line(text)
-                    print(save_path)
-                    add_document_to_db(text_chunks, filename)
+                    text = extract_text_from_docx(temp_save_path)
+                elif ext in ['.png', '.jpg']:
+                    text = extract_text_from_image(temp_save_path)
+                else:
+                    text = ""
+
+                text_chunks = chunk_text_by_line(text)
+                add_document_to_db(text_chunks, filename)
+
+                encrypt_file(temp_save_path, app.config['ENCRYPTED_FOLDER'], name_without_ext)
+
+                # Save the original file extension in a .meta file
+                keys_dir = os.path.join(app.config['ENCRYPTED_FOLDER'], 'secret_keys')
+                os.makedirs(keys_dir, exist_ok=True)
+                meta_path = os.path.join(keys_dir, name_without_ext + ".meta")
+                with open(meta_path, "w") as meta_file:
+                    meta_file.write(ext)
+
                 uploaded_files.append(filename)
             else:
                 unsupported_files.append(filename)
@@ -221,13 +261,14 @@ def upload_files():
             return jsonify({'message': 'No valid documents processed.', 'unsupported_files': unsupported_files}), 200
 
         return jsonify({
-            'message': 'Files uploaded successfully',
+            'message': 'Files uploaded, processed, and encrypted successfully.',
             'files': uploaded_files,
             'unsupported_files': unsupported_files
         }), 200
 
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
 
 @app.route('/chatbot', methods=['POST'])
 def chatbot():
