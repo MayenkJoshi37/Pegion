@@ -20,31 +20,34 @@ cd Pegion
 conda env create -f environment.yml
 conda activate pegion
 The environment.yml file lists all required dependencies and libraries.
+```
 
 📦 Usage
 Encrypt a file
-bash
-Copy code
+
+```bash
 python encrypt_file.py \
   --input  /path/to/your/plain_file.txt \
   --output /path/to/save/encrypted_file.enc
+```
 Decrypt a file
-bash
-Copy code
+```bash
 python decrypt_file.py \
   --input  /path/to/your/encrypted_file.enc \
   --output /path/to/save/decrypted_file.txt
+```
 Replace /path/to/... with your actual file paths.
 
 📁 Project Structure
-bash
-Copy code
+```bash
 Pegion/
 ├── encrypt_file.py        # Script to encrypt files
 ├── decrypt_file.py        # Script to decrypt files
 ├── environment.yml        # Conda environment specification
 ├── requirements.txt       # (Optional) pip requirements
 └── README.md              # This file
+```
+
 
 🤝 Contributing
 Fork the repository
@@ -56,6 +59,7 @@ Commit your changes: git commit -m "Add YourFeature"
 Push to your branch: git push origin feature/YourFeature
 
 Open a Pull Request
+
 
 📫 Contact
 Author: Mayenk Joshi
