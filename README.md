@@ -62,5 +62,4 @@ Open a Pull Request
 
 
 📫 Contact
-Author: Mayenk Joshi
 Email: mayenk.joshi23@vit.edu
